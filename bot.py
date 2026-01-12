@@ -93,18 +93,28 @@ def parse_duration(time_str):
         return None
     amount, unit = match.groups()
     amount = int(amount)
-    return amount * {"s":1, "m":60, "h":3600}[unit]
+    return amount * {"s": 1, "m": 60, "h": 3600}[unit]
+
 
 @bot.command()
 @commands.has_permissions(moderate_members=True)
 async def mute(ctx, member: discord.Member, time: str, *, reason="Muted"):
+    # ❌ Owner / higher role safety
+    if member == ctx.guild.owner:
+        return await ctx.send("❌ Server owner cannot be muted.")
+
+    if member.top_role >= ctx.guild.me.top_role:
+        return await ctx.send("❌ My role must be higher than the member.")
+
     seconds = parse_duration(time)
     if not seconds:
         return await ctx.send("❌ Use format like `10s`, `5m`, `1h`")
 
-    until = datetime.utcnow() + timedelta(seconds=seconds)
-    await member.timeout(until, reason=reason)
-    await ctx.send(f"🔇 Muted {member.mention} for {time}")
+    # ✅ AWARE datetime (THIS IS THE FIX)
+    until = discord.utils.utcnow() + timedelta(seconds=seconds)
+
+    await member.edit(timeout=until, reason=reason)
+    await ctx.send(f"🔇 Muted {member.mention} for **{time}**")
 
 @bot.command()
 @commands.has_permissions(manage_messages=True)
@@ -201,4 +211,5 @@ async def on_voice_state_update(member, before, after):
 # ================= START =================
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
+
 
